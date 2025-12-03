@@ -1,4 +1,4 @@
-name: UC Theatre ICS Generator
+name: UC Theatre ICS Generator & Publish
 
 on:
   schedule:
@@ -9,22 +9,44 @@ on:
       - main
 
 jobs:
-  generate_ics:
+  generate_and_publish:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 icalendar pytz
-      - name: Run scraper to generate ICS
+
+      - name: Generate ICS
         run: python uct_scraper_to_ics.py
-      - name: Upload ICS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: uct_events_ics
-          path: uct_events.ics
+
+      - name: Configure git for publishing
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Switch to gh-pages branch
+        run: |
+          git fetch origin gh-pages || git checkout --orphan gh-pages
+          git checkout gh-pages
+
+      - name: Copy ICS to branch root
+        run: |
+          cp uct_events.ics ./uct_events.ics
+          git add uct_events.ics
+          git commit -m "Update UC Theatre ICS $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+
+      - name: Push to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git push origin gh-pages --force
