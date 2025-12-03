@@ -1,5 +1,3 @@
-scrape_uc_events.py
-
 #!/usr/bin/env python3
 """
 uct_scraper_to_gcal.py
