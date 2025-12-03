@@ -4,7 +4,7 @@ uct_scraper_to_ics.py
 
 - Scrapes upcoming shows from https://www.theuctheatre.org/events
 - Generates a detailed iCal (.ics) file
-- Includes title, doors/show times, description, and ticket links
+- Supports multiple show times per day
 """
 
 import os
@@ -51,34 +51,35 @@ def parse_events(html):
             date_tag = event_block.select_one(".event-date")
             date_text = date_tag.get_text(strip=True) if date_tag else ""
 
-            time_tag = event_block.select_one(".event-time")
-            time_text = time_tag.get_text(strip=True) if time_tag else ""
+            times_tags = event_block.select(".event-time")  # multiple times per day
+            times_texts = [t.get_text(strip=True) for t in times_tags] if times_tags else ["7:30 PM"]
 
             link_tag = event_block.select_one("a.event-link")
             event_url = link_tag['href'] if link_tag and link_tag.has_attr('href') else ""
 
             doors_text = event_block.select_one(".doors").get_text(strip=True) if event_block.select_one(".doors") else ""
 
-            # Parse date/time
-            # Example: "Fri, Dec 6 7:30 PM"
-            dt_str = f"{date_text} {time_text}"
-            try:
-                dt_start = datetime.strptime(dt_str, "%a, %b %d %I:%M %p")
-                dt_start = tz.localize(dt_start)
-            except Exception:
-                # fallback: use today + 19:00 if parsing fails
-                dt_start = tz.localize(datetime.now().replace(hour=19, minute=0, second=0, microsecond=0))
+            for time_text in times_texts:
+                # Parse date + time
+                dt_str = f"{date_text} {time_text}"
+                try:
+                    dt_start = datetime.strptime(dt_str, "%a, %b %d %I:%M %p")
+                    dt_start = tz.localize(dt_start)
+                except Exception:
+                    # fallback: today + 19:00
+                    dt_start = tz.localize(datetime.now().replace(hour=19, minute=0, second=0, microsecond=0))
 
-            dt_end = dt_start + timedelta(hours=2)
+                dt_end = dt_start + timedelta(hours=2)
 
-            description = f"{title}\nDoors: {doors_text}\nURL: {event_url}"
+                description = f"{title}\nDoors: {doors_text}\nURL: {event_url}"
 
-            events.append({
-                "title": title,
-                "start": dt_start,
-                "end": dt_end,
-                "description": description
-            })
+                events.append({
+                    "title": title,
+                    "start": dt_start,
+                    "end": dt_end,
+                    "description": description
+                })
+
         except Exception as e:
             print(f"Failed to parse an event: {e}")
 
