@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import hashlib
 
 # CONFIG
 TIMEZONE = "America/Los_Angeles"
@@ -37,13 +38,14 @@ def fetch_events():
                 dt_end = dt_start + timedelta(hours=2)
 
                 description = f"Doors: {doors}\nURL: {url}"
-                events.append({"title": title, "start": dt_start, "end": dt_end, "description": description})
+                # Use a consistent UID based on title + start time
+                uid = hashlib.sha1(f"{title}{dt_start}".encode()).hexdigest()
+                events.append({"uid": uid, "title": title, "start": dt_start, "end": dt_end, "description": description})
         except Exception:
             continue
     return events
 
 def push_to_gcal(events):
-    # Load service account credentials from environment
     sa_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
     credentials = service_account.Credentials.from_service_account_info(
         sa_info,
@@ -51,22 +53,45 @@ def push_to_gcal(events):
     )
     service = build("calendar", "v3", credentials=credentials)
 
-    # Optional: clear existing events in the next 365 days (to prevent duplicates)
+    # Fetch existing events in next EVENT_LOOKAHEAD_DAYS
     now = datetime.utcnow().isoformat() + "Z"
     future = (datetime.utcnow() + timedelta(days=EVENT_LOOKAHEAD_DAYS)).isoformat() + "Z"
-    events_result = service.events().list(calendarId=CALENDAR_ID, timeMin=now, timeMax=future).execute()
-    for ev in events_result.get("items", []):
-        service.events().delete(calendarId=CALENDAR_ID, eventId=ev["id"]).execute()
+    existing = service.events().list(calendarId=CALENDAR_ID, timeMin=now, timeMax=future).execute()
+    existing_by_uid = {ev.get("id"): ev for ev in existing.get("items", [])}
 
-    # Insert new events
+    # Create a map to match by UID (we store UID in extendedProperties)
+    uid_to_event_id = {}
+    for ev in existing.get("items", []):
+        uids = ev.get("extendedProperties", {}).get("private", {})
+        if "uct_uid" in uids:
+            uid_to_event_id[uids["uct_uid"]] = ev["id"]
+
     for ev in events:
-        event_body = {
-            "summary": ev["title"],
-            "description": ev["description"],
-            "start": {"dateTime": ev["start"].isoformat(), "timeZone": TIMEZONE},
-            "end": {"dateTime": ev["end"].isoformat(), "timeZone": TIMEZONE}
-        }
-        service.events().insert(calendarId=CALENDAR_ID, body=event_body).execute()
+        if ev["uid"] in uid_to_event_id:
+            # Event exists → update it
+            service.events().update(
+                calendarId=CALENDAR_ID,
+                eventId=uid_to_event_id[ev["uid"]],
+                body={
+                    "summary": ev["title"],
+                    "description": ev["description"],
+                    "start": {"dateTime": ev["start"].isoformat(), "timeZone": TIMEZONE},
+                    "end": {"dateTime": ev["end"].isoformat(), "timeZone": TIMEZONE},
+                    "extendedProperties": {"private": {"uct_uid": ev["uid"]}}
+                }
+            ).execute()
+        else:
+            # Event does not exist → insert new
+            service.events().insert(
+                calendarId=CALENDAR_ID,
+                body={
+                    "summary": ev["title"],
+                    "description": ev["description"],
+                    "start": {"dateTime": ev["start"].isoformat(), "timeZone": TIMEZONE},
+                    "end": {"dateTime": ev["end"].isoformat(), "timeZone": TIMEZONE},
+                    "extendedProperties": {"private": {"uct_uid": ev["uid"]}}
+                }
+            ).execute()
 
 def main():
     events = fetch_events()
