@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repo
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -39,18 +39,21 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # 6️⃣ Switch or create gh-pages branch
-      - name: Switch to gh-pages branch (create if missing)
+      # 6️⃣ Switch to gh-pages branch (create if missing)
+      - name: Switch to gh-pages branch
         run: |
-          if git ls-remote --heads origin gh-pages; then
-            git fetch origin gh-pages
+          # Fetch gh-pages if it exists, ignore errors
+          git fetch origin gh-pages || true
+
+          # Check if local gh-pages branch exists
+          if git show-ref --verify --quiet refs/heads/gh-pages; then
             git checkout gh-pages
           else
             git checkout --orphan gh-pages
             git rm -rf . || true
           fi
 
-      # 7️⃣ Copy ICS and commit changes
+      # 7️⃣ Copy ICS to branch root and commit
       - name: Copy ICS to branch root
         run: |
           cp uct_events.ics ./uct_events.ics
