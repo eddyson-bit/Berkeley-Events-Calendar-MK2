@@ -40,7 +40,7 @@ jobs:
             git checkout gh-pages
           else
             git checkout --orphan gh-pages
-            git rm -rf .
+            git rm -rf . || true
           fi
 
       - name: Copy ICS to branch root
