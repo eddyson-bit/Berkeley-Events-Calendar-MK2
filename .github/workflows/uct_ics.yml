@@ -24,7 +24,7 @@ jobs:
       - name: Run scraper to generate ICS
         run: python uct_scraper_to_ics.py
       - name: Upload ICS artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: uct_events_ics
           path: uct_events.ics
