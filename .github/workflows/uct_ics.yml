@@ -53,10 +53,9 @@ jobs:
             git rm -rf . || true
           fi
 
-      # 7️⃣ Copy ICS to branch root and commit
-      - name: Copy ICS to branch root
+      # 7️⃣ Commit ICS to branch root
+      - name: Commit ICS to gh-pages
         run: |
-          cp uct_events.ics ./uct_events.ics
           git add uct_events.ics
           git commit -m "Update UC Theatre ICS $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
 
