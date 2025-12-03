@@ -53,11 +53,24 @@ jobs:
             git rm -rf . || true
           fi
 
-      # 7️⃣ Commit ICS to branch root
-      - name: Commit ICS to gh-pages
+      # 7️⃣ Commit ICS to branch root and create timestamped redirect
+      - name: Commit ICS and update redirect
         run: |
           git add uct_events.ics
-          git commit -m "Update UC Theatre ICS $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          # Create a redirect HTML with timestamp
+          TIMESTAMP=$(date +%s)
+          cat <<EOF > index.html
+          <html>
+            <head>
+              <meta http-equiv="refresh" content="0;url=uct_events.ics?ts=$TIMESTAMP">
+            </head>
+            <body>
+              Redirecting to latest UC Theatre ICS...
+            </body>
+          </html>
+          EOF
+          git add index.html
+          git commit -m "Update UC Theatre ICS and redirect $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
 
       # 8️⃣ Push to gh-pages
       - name: Push to gh-pages
