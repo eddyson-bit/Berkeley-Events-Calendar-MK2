@@ -1,4 +1,4 @@
-name: UC Theatre → Google Calendar
+name: UC Theatre → Google Calendar (Incremental)
 
 on:
   schedule:
@@ -31,6 +31,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 google-api-python-client google-auth-httplib2 google-auth-oauthlib pytz
 
-      # 4️⃣ Run scraper and push to Google Calendar
+      # 4️⃣ Run scraper and push incremental updates to Google Calendar
       - name: Push UC Theatre events to Google Calendar
         run: python uct_scraper_to_gcal.py
